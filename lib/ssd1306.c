@@ -77,6 +77,11 @@ void ssd1306_pixel(ssd1306_t *ssd, uint8_t x, uint8_t y, bool value) {
     ssd->ram_buffer[index] &= ~(1 << pixel);
 }
 
+void draw_image(){
+
+};
+
+
 /*
 void ssd1306_fill(ssd1306_t *ssd, bool value) {
   uint8_t byte = value ? 0xFF : 0x00;
@@ -176,6 +181,42 @@ void ssd1306_draw_char(ssd1306_t *ssd, char c, uint8_t x, uint8_t y)
     for (uint8_t j = 0; j < 8; ++j)
     {
       ssd1306_pixel(ssd, x + i, y + j, line & (1 << j)); // Desenha cada pixel do caractere
+    }
+  }
+}
+
+// Função para desenhar a imagem
+void ssd1306_draw_pessoa_parada(ssd1306_t *ssd, uint8_t x, uint8_t y)
+{
+  uint8_t y_auxiliar = 0;
+  // Desenha o caractere na tela
+  for (uint8_t i = 0; i < 32; ++i)
+  {
+    for (uint8_t j = 0; j < 4; ++j)
+    {
+      uint8_t line = desenho_parado[i][j]; // Acessa a linha correspondente da imagem
+      for(uint8_t k=0;k<8;k++){
+        y_auxiliar = j*8 + k;
+        ssd1306_pixel(ssd, x + i, y + y_auxiliar, line & (1 << (7 - k))); // Desenha cada pixel da imagem
+      }
+    }
+  }
+}
+
+// Função para desenhar um caractere
+void ssd1306_draw_pessoa_andando(ssd1306_t *ssd, uint8_t x, uint8_t y)
+{
+  uint8_t y_auxiliar = 0;
+  // Desenha o caractere na tela
+  for (uint8_t i = 0; i < 32; ++i)
+  {
+    for (uint8_t j = 0; j < 4; ++j)
+    {
+      uint8_t line = desenho_andando[i][j]; 
+      for(uint8_t k=0;k<8;k++){
+        y_auxiliar = j*8 + k;
+        ssd1306_pixel(ssd, x + i, y + y_auxiliar, line & (1 << (7 - k))); 
+      }
     }
   }
 }
