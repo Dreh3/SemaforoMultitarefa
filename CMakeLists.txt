@@ -55,6 +55,8 @@ target_link_libraries(Semaforo
         hardware_i2c
         FreeRTOS-Kernel 
         FreeRTOS-Kernel-Heap4
+        hardware_pwm
+        hardware_clocks
         )
 
 # Add the standard include files to the build

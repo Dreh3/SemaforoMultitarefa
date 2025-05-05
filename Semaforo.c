@@ -7,7 +7,9 @@
 #include "FreeRTOS.h"
 #include "FreeRTOSConfig.h"
 #include "task.h"
-
+#include "hardware/pwm.h"
+#include "hardware/timer.h"
+#include "hardware/clocks.h"
 
 #define I2C_PORT i2c1
 #define I2C_SDA 14
@@ -18,21 +20,23 @@
 //#define led_Blue 12
 #define led_Red 13
 
-bool modoNoturno = true; //Variável global para alternar entre os modos
+bool modoNoturno = false; //Variável global para alternar entre os modos
 #define BotaoA 5
 static volatile uint32_t tempo_anterior = 0;
 
-TaskHandle_t xHandleA; //Suspender e ativar a task
-BaseType_t xYieldRequired;
+//TaskHandle_t xHandleA; //Suspender e ativar a task
+//BaseType_t xYieldRequired;
 void vBotaoATask(){
     
     //vTaskSuspend(); -- Suspender nates do scheduler
-    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-    modoNoturno=!modoNoturno;
+    //ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+    //modoNoturno=!modoNoturno;
     //vTaskDelay(pdMS_TO_TICKS(200));
     //vTaskSuspend(NULL);
 
 };
+
+uint sinal_atual=0;
 
 void vSemaforoRGBTask(){
 
@@ -48,16 +52,19 @@ void vSemaforoRGBTask(){
             //Modo normal 
 
             gpio_put(led_Green,1);
+            sinal_atual=1;
             vTaskDelay(pdMS_TO_TICKS(15000));
             gpio_put(led_Green,0);
             vTaskDelay(pdMS_TO_TICKS(500));
             gpio_put(led_Green,1);
             gpio_put(led_Red,1);
+            sinal_atual=2;
             vTaskDelay(pdMS_TO_TICKS(5000));
             gpio_put(led_Green,0);
             gpio_put(led_Red,0);
             vTaskDelay(pdMS_TO_TICKS(500));
             gpio_put(led_Red,1);
+            sinal_atual = 3;
             vTaskDelay(pdMS_TO_TICKS(30000));
             gpio_put(led_Red,0);
             vTaskDelay(pdMS_TO_TICKS(500));
@@ -78,7 +85,43 @@ void vSemaforoRGBTask(){
 
 };
 
+//Buzzer
+#define Buzzer 21
+void vBuzzerTask(){
 
+    uint slice;
+    gpio_set_function(Buzzer, GPIO_FUNC_PWM); //Configura pino do led como pwm
+    slice = pwm_gpio_to_slice_num(Buzzer); //Adiquire o slice do pino
+    pwm_config config = pwm_get_default_config();
+    pwm_config_set_clkdiv(&config, clock_get_hz(clk_sys) / (4400 * 4096));
+    pwm_init(slice, &config, true);
+    pwm_set_gpio_level(Buzzer, 0); //Determina com o level desejado
+
+    while (true)
+    {
+        if(modoNoturno){
+
+        }else{
+            if(sinal_atual==1){
+                pwm_set_gpio_level(Buzzer, 32768);
+                vTaskDelay(pdMS_TO_TICKS(1000));
+                pwm_set_gpio_level(Buzzer, 0);
+                vTaskDelay(pdMS_TO_TICKS(14500));
+            }else if(sinal_atual==2){
+                pwm_set_gpio_level(Buzzer, 32768);
+                vTaskDelay(pdMS_TO_TICKS(500));
+                pwm_set_gpio_level(Buzzer, 0);
+                vTaskDelay(pdMS_TO_TICKS(300));
+            }else if(sinal_atual==3){
+                pwm_set_gpio_level(Buzzer, 0);
+                vTaskDelay(pdMS_TO_TICKS(500));
+                pwm_set_gpio_level(Buzzer, 32768);
+                vTaskDelay(pdMS_TO_TICKS(1500));
+            };
+        };
+    };
+
+};
 
 void vDisplay3Task()
 {
@@ -108,16 +151,18 @@ void vDisplay3Task()
         ssd1306_draw_string(&ssd,"SEMAFORO",34,3);
         ssd1306_draw_string(&ssd,"PARA",45,12);
         ssd1306_draw_string(&ssd,"PEDESTRES",32,21);
-        //ssd1306_draw_string(&ssd,"CUIDADO!",55,41);
-        //ssd1306_draw_pessoa_parada(&ssd,20,31);
-        ssd1306_draw_string(&ssd,"SIGA!",55,41);
-        ssd1306_draw_pessoa_andando(&ssd,20,31);
+        
         if(modoNoturno){ //Sempre termina o ciclo e muda de modo?
-
-
-
+            ssd1306_draw_string(&ssd,"CUIDADO!",55,41);
+            ssd1306_draw_pessoa_parada(&ssd,20,31);
         }else{
-
+            if(sinal_atual==1){
+                ssd1306_draw_string(&ssd,"SIGA!",55,41);
+                ssd1306_draw_pessoa_andando(&ssd,20,31);
+            }else{
+                ssd1306_draw_string(&ssd,"CUIDADO!",55,41);
+                ssd1306_draw_pessoa_parada(&ssd,20,31);
+            };
         };
         //Design
 
@@ -166,10 +211,12 @@ int main()
        
         xTaskCreate(vSemaforoRGBTask, "Task RGB", configMINIMAL_STACK_SIZE, 
             NULL, tskIDLE_PRIORITY, NULL);
-        xTaskCreate(vBotaoATask, "Task Botao", configMINIMAL_STACK_SIZE, 
-                NULL, tskIDLE_PRIORITY+2, &xHandleA);
+        //xTaskCreate(vBotaoATask, "Task Botao", configMINIMAL_STACK_SIZE, 
+                //NULL, tskIDLE_PRIORITY+2, &xHandleA);
         xTaskCreate(vDisplay3Task, "Task Disp3", configMINIMAL_STACK_SIZE, 
            NULL, tskIDLE_PRIORITY, NULL);
+        xTaskCreate(vBuzzerTask, "Task Buzzer", configMINIMAL_STACK_SIZE, 
+            NULL, tskIDLE_PRIORITY, NULL);
         //vTaskSuspend(xHandleA);
         vTaskStartScheduler();
         panic_unsupported();
