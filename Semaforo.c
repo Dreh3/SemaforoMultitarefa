@@ -9,7 +9,8 @@
 #include "task.h"
 #include "hardware/pwm.h"
 #include "hardware/timer.h"
-#include "hardware/clocks.h"
+#include "lib/matriz.h"
+#include "math.h"
 
 #define I2C_PORT i2c1
 #define I2C_SDA 14
@@ -20,7 +21,7 @@
 //#define led_Blue 12
 #define led_Red 13
 
-bool modoNoturno = false; //Variável global para alternar entre os modos
+bool modoNoturno = true; //Variável global para alternar entre os modos
 #define BotaoA 5
 static volatile uint32_t tempo_anterior = 0;
 
@@ -74,10 +75,10 @@ void vSemaforoRGBTask(){
             //Modo noturno
             gpio_put(led_Green,1);
             gpio_put(led_Red,1);
-            vTaskDelay(pdMS_TO_TICKS(5000));
+            vTaskDelay(pdMS_TO_TICKS(3000));
             gpio_put(led_Green,0);
             gpio_put(led_Red,0);
-            vTaskDelay(pdMS_TO_TICKS(2000));
+            vTaskDelay(pdMS_TO_TICKS(3000));
 
         };
 
@@ -101,7 +102,7 @@ void vBuzzerTask(){
     {
         if(modoNoturno){
             pwm_set_gpio_level(Buzzer, 32768);
-            vTaskDelay(pdMS_TO_TICKS(500));
+            vTaskDelay(pdMS_TO_TICKS(700));
             pwm_set_gpio_level(Buzzer, 0);
             vTaskDelay(pdMS_TO_TICKS(2000));
         }else{
@@ -112,14 +113,16 @@ void vBuzzerTask(){
                 vTaskDelay(pdMS_TO_TICKS(14500));
             }else if(sinal_atual==2){
                 pwm_set_gpio_level(Buzzer, 32768);
-                vTaskDelay(pdMS_TO_TICKS(500));
+                vTaskDelay(pdMS_TO_TICKS(275));
                 pwm_set_gpio_level(Buzzer, 0);
-                vTaskDelay(pdMS_TO_TICKS(300));
+                vTaskDelay(pdMS_TO_TICKS(275));
             }else if(sinal_atual==3){
-                pwm_set_gpio_level(Buzzer, 0);
-                vTaskDelay(pdMS_TO_TICKS(500));
                 pwm_set_gpio_level(Buzzer, 32768);
+                vTaskDelay(pdMS_TO_TICKS(500));
+                pwm_set_gpio_level(Buzzer, 0);
                 vTaskDelay(pdMS_TO_TICKS(1500));
+                
+
             };
         };
     };
@@ -169,7 +172,7 @@ void vDisplay3Task()
         };
 
         ssd1306_send_data(&ssd);                           // Atualiza o display
-        sleep_ms(735);
+        sleep_ms(500);
     }
 }
 
@@ -192,6 +195,70 @@ void interrupcaoBotao(uint gpio, uint32_t events)
     };  
 };
 
+
+PIO pio = pio0; // ou pio1, conforme o uso
+uint sm = 0;    // ou outro valor, conforme sua configuração
+uint sinal_amarelo=0;
+
+void vMatrizLedsTask(){
+
+    //Configurações para matriz de leds
+    uint offset = pio_add_program(pio, &pio_matrix_program);
+    pio_matrix_program_init(pio, sm, offset, MatrizLeds, 800000, IS_RGBW);
+
+    //Definindo cores e tonalidades
+    uint sinal_verde=0;
+    
+    uint sinal_vermelho=0;
+    COR_RGB apagado = {0.0,0.0,0.0};
+
+                              
+    COR_RGB cores_semaforo[4] = {{0.0,0.0,0.0},{0.0,0.5,0.0},{0.5,0.5,0.0},{0.5,0.0,0.0}};
+
+    while(true){
+       if(modoNoturno){
+            sinal_verde=0;
+            sinal_vermelho=0;
+            sinal_amarelo=abs(sinal_amarelo-2);
+        }else{
+            switch (sinal_atual){
+            case 1:
+                sinal_verde=1;
+                sinal_amarelo=0;
+                sinal_vermelho=0;
+                break;
+            case 2:
+                sinal_verde=0;
+                sinal_amarelo=2;
+                sinal_vermelho=0;
+                break;
+            case 3:
+                sinal_verde=0;
+                sinal_amarelo=0;
+                sinal_vermelho=3;
+                break;
+            default:
+                break;
+            };
+        };
+        Matriz_leds semaforo = {{apagado,apagado,apagado,apagado,apagado},
+                            {apagado,apagado, cores_semaforo[sinal_verde],apagado,apagado},
+                            {apagado,apagado, cores_semaforo[sinal_amarelo],apagado,apagado},
+                            {apagado,apagado, cores_semaforo[sinal_vermelho],apagado,apagado},
+                            {apagado,apagado,apagado,apagado,apagado}};
+        if(modoNoturno){
+            acender_leds(semaforo);
+            sleep_ms(3000);
+            //sleep_ms(500);
+        }else{
+            acender_leds(semaforo);
+            //
+            sleep_ms(500);
+        }
+    };
+};
+
+
 int main()
 {
     stdio_init_all();
@@ -209,6 +276,7 @@ int main()
     gpio_pull_up(BotaoA);
     gpio_set_irq_enabled_with_callback(BotaoA, GPIO_IRQ_EDGE_FALL, true, &interrupcaoBotao);
 
+
     while (true) {
         xTaskCreate(vSemaforoRGBTask, "Task RGB", configMINIMAL_STACK_SIZE, 
             NULL, tskIDLE_PRIORITY, NULL);
@@ -218,6 +286,8 @@ int main()
            NULL, tskIDLE_PRIORITY, NULL);
         xTaskCreate(vBuzzerTask, "Task Buzzer", configMINIMAL_STACK_SIZE, 
             NULL, tskIDLE_PRIORITY, NULL); //Tentar depois mudar o som
+        xTaskCreate(vMatrizLedsTask, "Task Matriz", configMINIMAL_STACK_SIZE, 
+                NULL, tskIDLE_PRIORITY, NULL); 
         //vTaskSuspend(xHandleA);
         vTaskStartScheduler();
         panic_unsupported();

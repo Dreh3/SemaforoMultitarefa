@@ -39,7 +39,7 @@ include_directories(${CMAKE_SOURCE_DIR}/lib)
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(Semaforo Semaforo.c lib/ssd1306.c)
+add_executable(Semaforo Semaforo.c lib/ssd1306.c lib/matriz.c)
 
 pico_set_program_name(Semaforo "Semaforo")
 pico_set_program_version(Semaforo "0.1")
@@ -57,6 +57,7 @@ target_link_libraries(Semaforo
         FreeRTOS-Kernel-Heap4
         hardware_pwm
         hardware_clocks
+        hardware_pio
         )
 
 # Add the standard include files to the build
@@ -64,6 +65,8 @@ target_include_directories(Semaforo PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
 )
 
+#Gerar arquivo cabeçalho pio
+pico_generate_pio_header(${CMAKE_PROJECT_NAME} ${CMAKE_CURRENT_LIST_DIR}/lib/pio_matrix.pio)
 
 
 pico_add_extra_outputs(Semaforo)
