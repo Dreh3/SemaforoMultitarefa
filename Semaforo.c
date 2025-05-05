@@ -21,20 +21,24 @@
 //#define led_Blue 12
 #define led_Red 13
 
-bool modoNoturno = true; //Variável global para alternar entre os modos
+bool modoNoturno = false; //Variável global para alternar entre os modos
 #define BotaoA 5
 static volatile uint32_t tempo_anterior = 0;
+bool ciclo_normal_inicado = false;
+bool ciclo_noturno_iniciado = false;
 
-//TaskHandle_t xHandleA; //Suspender e ativar a task
+TaskHandle_t xHandleA; //Suspender e ativar a task
 //BaseType_t xYieldRequired;
 void vBotaoATask(){
     
-    //vTaskSuspend(); -- Suspender nates do scheduler
+    vTaskSuspend(NULL);
     //ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-    //modoNoturno=!modoNoturno;
-    //vTaskDelay(pdMS_TO_TICKS(200));
-    //vTaskSuspend(NULL);
-
+    while(true){
+        printf("modo noturno: %d",modoNoturno);
+        modoNoturno=!modoNoturno;
+        //vTaskDelay(pdMS_TO_TICKS(200));
+        vTaskSuspend(xHandleA); //Suspender nates do scheduler
+    };
 };
 
 uint sinal_atual=0;
@@ -48,10 +52,11 @@ void vSemaforoRGBTask(){
     gpio_set_dir(led_Red, GPIO_OUT);
 
     while(true){
-
+        //vTaskSuspend(xHandleA);
         if(!modoNoturno){
             //Modo normal 
-
+            ciclo_normal_inicado = true;
+            ciclo_noturno_iniciado = false;
             gpio_put(led_Green,1);
             sinal_atual=1;
             vTaskDelay(pdMS_TO_TICKS(15000));
@@ -69,9 +74,9 @@ void vSemaforoRGBTask(){
             vTaskDelay(pdMS_TO_TICKS(30000));
             gpio_put(led_Red,0);
             vTaskDelay(pdMS_TO_TICKS(500));
-
-
         }else{
+            ciclo_normal_inicado = false;
+            ciclo_noturno_iniciado = true;
             //Modo noturno
             gpio_put(led_Green,1);
             gpio_put(led_Red,1);
@@ -100,12 +105,12 @@ void vBuzzerTask(){
 
     while (true)
     {
-        if(modoNoturno){
+        if(modoNoturno && ciclo_noturno_iniciado){
             pwm_set_gpio_level(Buzzer, 32768);
             vTaskDelay(pdMS_TO_TICKS(700));
             pwm_set_gpio_level(Buzzer, 0);
             vTaskDelay(pdMS_TO_TICKS(2000));
-        }else{
+        }else if (ciclo_normal_inicado){
             if(sinal_atual==1){
                 pwm_set_gpio_level(Buzzer, 32768);
                 vTaskDelay(pdMS_TO_TICKS(1000));
@@ -121,9 +126,9 @@ void vBuzzerTask(){
                 vTaskDelay(pdMS_TO_TICKS(500));
                 pwm_set_gpio_level(Buzzer, 0);
                 vTaskDelay(pdMS_TO_TICKS(1500));
-                
-
             };
+        }else{
+            vTaskDelay(pdMS_TO_TICKS(50));
         };
     };
 
@@ -158,15 +163,18 @@ void vDisplay3Task()
         ssd1306_draw_string(&ssd,"PARA",45,12);
         ssd1306_draw_string(&ssd,"PEDESTRES",32,21);
         
-        if(modoNoturno){ //Sempre termina o ciclo e muda de modo?
+        if(modoNoturno && ciclo_noturno_iniciado){ //Sempre termina o ciclo e muda de modo?
             ssd1306_draw_string(&ssd,"CUIDADO!",55,41); //Tentar fazer o cuidado passando pela tela
             ssd1306_draw_pessoa_parada(&ssd,20,31);
-        }else{
+        }else if (ciclo_normal_inicado){
             if(sinal_atual==1){
                 ssd1306_draw_string(&ssd,"SIGA!",55,41);
                 ssd1306_draw_pessoa_andando(&ssd,20,31);
+            }else if(sinal_atual==2){
+                ssd1306_draw_string(&ssd,"ATENCAO!",55,41);
+                ssd1306_draw_pessoa_parada(&ssd,20,31);
             }else{
-                ssd1306_draw_string(&ssd,"CUIDADO!",55,41);
+                ssd1306_draw_string(&ssd,"PARE!",55,41);
                 ssd1306_draw_pessoa_parada(&ssd,20,31);
             };
         };
@@ -179,8 +187,10 @@ void vDisplay3Task()
 // Trecho para modo BOOTSEL com botão B -- Adiconar outro botão para alternar os modos
 #include "pico/bootrom.h"
 #define BotaoB 6
+
 void interrupcaoBotao(uint gpio, uint32_t events)
 {
+    BaseType_t taskYieldRequired = 0;
     uint32_t tempo_atual = to_ms_since_boot(get_absolute_time());
 
     if(tempo_atual-tempo_anterior>=300){
@@ -188,9 +198,8 @@ void interrupcaoBotao(uint gpio, uint32_t events)
         if(gpio==6){
             reset_usb_boot(0, 0);
         }else{
-            
-            //Notificar task ?COMO FAZ ISSO?
-
+            taskYieldRequired = xTaskResumeFromISR(xHandleA);
+            //Notificar task ?COMO FAZ ISSO
         };
     };  
 };
@@ -216,11 +225,11 @@ void vMatrizLedsTask(){
     COR_RGB cores_semaforo[4] = {{0.0,0.0,0.0},{0.0,0.5,0.0},{0.5,0.5,0.0},{0.5,0.0,0.0}};
 
     while(true){
-       if(modoNoturno){
+       if(modoNoturno && ciclo_noturno_iniciado){
             sinal_verde=0;
             sinal_vermelho=0;
             sinal_amarelo=abs(sinal_amarelo-2);
-        }else{
+        }else if (ciclo_normal_inicado){
             switch (sinal_atual){
             case 1:
                 sinal_verde=1;
@@ -240,21 +249,25 @@ void vMatrizLedsTask(){
             default:
                 break;
             };
+        }else{
+            sinal_verde=0;
+            sinal_amarelo=0;
+            sinal_vermelho=0;
         };
         Matriz_leds semaforo = {{apagado,apagado,apagado,apagado,apagado},
                             {apagado,apagado, cores_semaforo[sinal_verde],apagado,apagado},
                             {apagado,apagado, cores_semaforo[sinal_amarelo],apagado,apagado},
                             {apagado,apagado, cores_semaforo[sinal_vermelho],apagado,apagado},
                             {apagado,apagado,apagado,apagado,apagado}};
-        if(modoNoturno){
-            acender_leds(semaforo);
+        if(modoNoturno && ciclo_noturno_iniciado){
+            acender_leds(semaforo); //stado_atual ==3 ele espera
             sleep_ms(3000);
             //sleep_ms(500);
         }else{
             acender_leds(semaforo);
             //
             sleep_ms(500);
-        }
+        };
     };
 };
 
@@ -276,20 +289,21 @@ int main()
     gpio_pull_up(BotaoA);
     gpio_set_irq_enabled_with_callback(BotaoA, GPIO_IRQ_EDGE_FALL, true, &interrupcaoBotao);
 
+    xTaskCreate(vSemaforoRGBTask, "Task RGB", configMINIMAL_STACK_SIZE, 
+        NULL, tskIDLE_PRIORITY, NULL);
+    xTaskCreate(vBotaoATask, "Task Botao", configMINIMAL_STACK_SIZE, 
+            NULL, tskIDLE_PRIORITY, &xHandleA); //Deu errado que não tava rodando com essas linhas -- acho q tava sem vtaskdelay
+    xTaskCreate(vDisplay3Task, "Task Disp3", configMINIMAL_STACK_SIZE, 
+       NULL, tskIDLE_PRIORITY, NULL);
+    xTaskCreate(vBuzzerTask, "Task Buzzer", configMINIMAL_STACK_SIZE, 
+        NULL, tskIDLE_PRIORITY, NULL); //Tentar depois mudar o som
+    xTaskCreate(vMatrizLedsTask, "Task Matriz", configMINIMAL_STACK_SIZE, 
+            NULL, tskIDLE_PRIORITY, NULL); 
+    //vTaskSuspend(xHandleA);
+    vTaskStartScheduler();
+    panic_unsupported();
 
     while (true) {
-        xTaskCreate(vSemaforoRGBTask, "Task RGB", configMINIMAL_STACK_SIZE, 
-            NULL, tskIDLE_PRIORITY, NULL);
-        //xTaskCreate(vBotaoATask, "Task Botao", configMINIMAL_STACK_SIZE, 
-                //NULL, tskIDLE_PRIORITY+2, &xHandleA); //Deu errado que não tava rodando com essas linhas -- acho q tava sem vtaskdelay
-        xTaskCreate(vDisplay3Task, "Task Disp3", configMINIMAL_STACK_SIZE, 
-           NULL, tskIDLE_PRIORITY, NULL);
-        xTaskCreate(vBuzzerTask, "Task Buzzer", configMINIMAL_STACK_SIZE, 
-            NULL, tskIDLE_PRIORITY, NULL); //Tentar depois mudar o som
-        xTaskCreate(vMatrizLedsTask, "Task Matriz", configMINIMAL_STACK_SIZE, 
-                NULL, tskIDLE_PRIORITY, NULL); 
-        //vTaskSuspend(xHandleA);
-        vTaskStartScheduler();
-        panic_unsupported();
+        
     };
 };
