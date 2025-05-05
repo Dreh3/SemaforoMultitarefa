@@ -28,18 +28,8 @@ bool ciclo_normal_inicado = false;
 bool ciclo_noturno_iniciado = false;
 
 TaskHandle_t xHandleA; //Suspender e ativar a task
-//BaseType_t xYieldRequired;
-void vBotaoATask(){
-    
-    vTaskSuspend(NULL);
-    //ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-    while(true){
-        printf("modo noturno: %d",modoNoturno);
-        modoNoturno=!modoNoturno;
-        //vTaskDelay(pdMS_TO_TICKS(200));
-        vTaskSuspend(xHandleA); //Suspender nates do scheduler
-    };
-};
+
+
 
 uint sinal_atual=0;
 
@@ -160,7 +150,7 @@ void vDisplay3Task()
         contador++;                     // Incrementa o contador
         ssd1306_fill(&ssd, !cor);                          // Limpa o display
         ssd1306_draw_string(&ssd,"SEMAFORO",34,3);
-        ssd1306_draw_string(&ssd,"PARA",45,12);
+        ssd1306_draw_string(&ssd,"PARA",47,12);
         ssd1306_draw_string(&ssd,"PEDESTRES",32,21);
         
         if(modoNoturno && ciclo_noturno_iniciado){ //Sempre termina o ciclo e muda de modo?
@@ -171,8 +161,8 @@ void vDisplay3Task()
                 ssd1306_draw_string(&ssd,"SIGA!",55,41);
                 ssd1306_draw_pessoa_andando(&ssd,20,31);
             }else if(sinal_atual==2){
-                ssd1306_draw_string(&ssd,"ATENCAO!",55,41);
-                ssd1306_draw_pessoa_parada(&ssd,20,31);
+                ssd1306_draw_string(&ssd,"ATENCAO!",42,41);
+                //ssd1306_draw_pessoa_parada(&ssd,20,31);
             }else{
                 ssd1306_draw_string(&ssd,"PARE!",55,41);
                 ssd1306_draw_pessoa_parada(&ssd,20,31);
@@ -204,6 +194,23 @@ void interrupcaoBotao(uint gpio, uint32_t events)
     };  
 };
 
+void vBotaoATask(){
+    
+    //Configurando Botão A
+    gpio_init(BotaoA);
+    gpio_set_dir(BotaoA, GPIO_IN);
+    gpio_pull_up(BotaoA);
+    gpio_set_irq_enabled_with_callback(BotaoA, GPIO_IRQ_EDGE_FALL, true, &interrupcaoBotao);
+
+    vTaskSuspend(NULL);
+    //ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+    while(true){
+        printf("modo noturno: %d",modoNoturno);
+        modoNoturno=!modoNoturno;
+        //vTaskDelay(pdMS_TO_TICKS(200));
+        vTaskSuspend(xHandleA); //Suspender nates do scheduler
+    };
+};
 
 PIO pio = pio0; // ou pio1, conforme o uso
 uint sm = 0;    // ou outro valor, conforme sua configuração
@@ -260,12 +267,10 @@ void vMatrizLedsTask(){
                             {apagado,apagado, cores_semaforo[sinal_vermelho],apagado,apagado},
                             {apagado,apagado,apagado,apagado,apagado}};
         if(modoNoturno && ciclo_noturno_iniciado){
-            acender_leds(semaforo); //stado_atual ==3 ele espera
+            acender_leds(semaforo); 
             sleep_ms(3000);
-            //sleep_ms(500);
         }else{
             acender_leds(semaforo);
-            //
             sleep_ms(500);
         };
     };
@@ -283,11 +288,6 @@ int main()
     gpio_set_irq_enabled_with_callback(BotaoB, GPIO_IRQ_EDGE_FALL, true, &interrupcaoBotao);
     // Fim do trecho para modo BOOTSEL com botão B
 
-    //Configurando Botão A
-    gpio_init(BotaoA);
-    gpio_set_dir(BotaoA, GPIO_IN);
-    gpio_pull_up(BotaoA);
-    gpio_set_irq_enabled_with_callback(BotaoA, GPIO_IRQ_EDGE_FALL, true, &interrupcaoBotao);
 
     xTaskCreate(vSemaforoRGBTask, "Task RGB", configMINIMAL_STACK_SIZE, 
         NULL, tskIDLE_PRIORITY, NULL);
@@ -299,7 +299,6 @@ int main()
         NULL, tskIDLE_PRIORITY, NULL); //Tentar depois mudar o som
     xTaskCreate(vMatrizLedsTask, "Task Matriz", configMINIMAL_STACK_SIZE, 
             NULL, tskIDLE_PRIORITY, NULL); 
-    //vTaskSuspend(xHandleA);
     vTaskStartScheduler();
     panic_unsupported();
 
