@@ -100,7 +100,10 @@ void vBuzzerTask(){
     while (true)
     {
         if(modoNoturno){
-
+            pwm_set_gpio_level(Buzzer, 32768);
+            vTaskDelay(pdMS_TO_TICKS(500));
+            pwm_set_gpio_level(Buzzer, 0);
+            vTaskDelay(pdMS_TO_TICKS(2000));
         }else{
             if(sinal_atual==1){
                 pwm_set_gpio_level(Buzzer, 32768);
@@ -153,7 +156,7 @@ void vDisplay3Task()
         ssd1306_draw_string(&ssd,"PEDESTRES",32,21);
         
         if(modoNoturno){ //Sempre termina o ciclo e muda de modo?
-            ssd1306_draw_string(&ssd,"CUIDADO!",55,41);
+            ssd1306_draw_string(&ssd,"CUIDADO!",55,41); //Tentar fazer o cuidado passando pela tela
             ssd1306_draw_pessoa_parada(&ssd,20,31);
         }else{
             if(sinal_atual==1){
@@ -164,7 +167,6 @@ void vDisplay3Task()
                 ssd1306_draw_pessoa_parada(&ssd,20,31);
             };
         };
-        //Design
 
         ssd1306_send_data(&ssd);                           // Atualiza o display
         sleep_ms(735);
@@ -208,20 +210,16 @@ int main()
     gpio_set_irq_enabled_with_callback(BotaoA, GPIO_IRQ_EDGE_FALL, true, &interrupcaoBotao);
 
     while (true) {
-       
         xTaskCreate(vSemaforoRGBTask, "Task RGB", configMINIMAL_STACK_SIZE, 
             NULL, tskIDLE_PRIORITY, NULL);
         //xTaskCreate(vBotaoATask, "Task Botao", configMINIMAL_STACK_SIZE, 
-                //NULL, tskIDLE_PRIORITY+2, &xHandleA);
+                //NULL, tskIDLE_PRIORITY+2, &xHandleA); //Deu errado que não tava rodando com essas linhas -- acho q tava sem vtaskdelay
         xTaskCreate(vDisplay3Task, "Task Disp3", configMINIMAL_STACK_SIZE, 
            NULL, tskIDLE_PRIORITY, NULL);
         xTaskCreate(vBuzzerTask, "Task Buzzer", configMINIMAL_STACK_SIZE, 
-            NULL, tskIDLE_PRIORITY, NULL);
+            NULL, tskIDLE_PRIORITY, NULL); //Tentar depois mudar o som
         //vTaskSuspend(xHandleA);
         vTaskStartScheduler();
         panic_unsupported();
-        
-        printf("modo: %d",modoNoturno);
-        printf("--");
-    }
-}
+    };
+};
