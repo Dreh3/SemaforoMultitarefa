@@ -25,7 +25,10 @@ O Sinal Verde fica ligado por 15s. Já o Sinal Amarelo fica ligado por 5s e, por
 ### 3. Semaforo para pedestres com o Display
 O Display tem a função de simular um semaforo para pedestres. Quando os leds estão no Sinal Verde, o display exibe um desenho de uma pessoa parada para sinalizar que ainda não é o momento de atravessar, já durante o Sinal Vermelho, o bonequinha exibido dá um passo, indicando que é seguro atravessar. Ademais, mensagens acompanham as sinalizações.<br>
 <div align="center">
-  <img src="imagens/Semaforo1.jpeg" alt="line ending" width="300"/>
+  <img src="imagens/Semaforo1.jpeg" alt="line ending" width="500"/>
+</div>
+<div align="center">
+  <img src="imagens/Semaforo2.jpeg" alt="line ending" width="500"/>
 </div>
 <br>
 
