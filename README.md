@@ -18,12 +18,21 @@ __Uma breve explicação do desenvolvimento e resultados obtidos podem ser visto
 
 ## Funcionalidades 
 
-### 1. Ciclo de Cores com LEDs RGB e Matriz de Leds
+### 1. Sistema com Multitarefa
+Os periféricos são definidos e controlados por tasks diferente. Todas as Tarefas criadas possuem a mesma prioridade, sendo a sincronização feita por variáevis globais. O Sistema de Multitarefas permitiu manipular periféricos diferentes de forma ordenada e sincronizada.
+### 2. Ciclo de Cores com LEDs RGB e Matriz de Leds
+O Sinal Verde fica ligado por 15s. Já o Sinal Amarelo fica ligado por 5s e, por sua vez, o Sinal Vermelho fica ligado por 30s. Ademais, para uma transição suave, há uma pausa de 0,5s entre as mudanças. Os LEDS RGB e a Matriz de Leds são sincronizados.
+### 3. Semaforo para pedestres com o Display
+O Display tem a função de simular um semaforo para pedestres. Quando os leds estão no Sinal Verde, o display exibe um desenho de uma pessoa parada para sinalizar que ainda não é o momento de atravessar, já durante o Sinal Vermelho, o bonequinha exibido dá um passo, indicando que é seguro atravessar. Ademais, mensagens acompanham as sinalizações.
+<div align="center">
+  <img src="![Semaforo1](https://github.com/user-attachments/assets/0cd17e57-efa1-4230-9d9c-14f6be8ae05f)" width="300"/>
+</div>
+<div align="center">
+  <img src="![Semaforo2](https://github.com/user-attachments/assets/6c903628-816e-49ab-9235-8dc6716d1483)" width="300"/>
+</div>
 
-### 2. Semaforo para pedestres com o Display
-
-### 3. Sistema com Multitarefa
-
-
-### 4. Dois modos de sinalização com mudança a partir de uma Task
-
+### 4. Sinalização sonora para alertar pessoas com deficiências visuais
+No Sinal Verde um bip longo de 1s é emitido, depois bips curtos constantes indicam a transição para o Sinal Amarelo. E, por último, um bip de 0,5s com intervalo de 1,5s indica o sinal Vermelho. 
+### 5. Dois modos de sinalização com mudança a partir de uma Task
+O ciclo verde -> amarelo -> vermelho consiste no modo normal. Ao pressionar o Botão A, a chamada de interrrupção ativa uma Tarefa responsável por modificar a flag do modo. <br>
+O modo noturno exibe apenas o Sinal Amarelo piscando lentamente com um beep a cada 2s. E o Display exibe apenas a mensagem de "CUIDADO!"
