@@ -1,3 +1,11 @@
+//Código desenvolvido por Andressa Sousa Fonseca
+
+/*
+*O presente projeto simula um sistema de semaforos, com sinalização do ciclo de cores
+*nos lEDS RGB e na Matriz de Leds. Além de sinalização sonoro para alertar deficientes visuais.
+*E no display há a representação de um semaforo para pedestres.
+*/
+
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "hardware/gpio.h"
@@ -12,26 +20,25 @@
 #include "lib/matriz.h"
 #include "math.h"
 
-#define I2C_PORT i2c1
+#define I2C_PORT i2c1 //Comucação I2C
 #define I2C_SDA 14
 #define I2C_SCL 15
 #define endereco 0x3C
 
-#define led_Green 11
+#define led_Green 11    //Defininco os pinos para o semaforo
 //#define led_Blue 12
 #define led_Red 13
 
-bool modoNoturno = false; //Variável global para alternar entre os modos
-#define BotaoA 5
-static volatile uint32_t tempo_anterior = 0;
-bool ciclo_normal_inicado = false;
+bool modoNoturno = false;   //Variável global para alternar entre os modos
+#define BotaoA 5            //Botão que será usado na interrupção
+static volatile uint32_t tempo_anterior = 0;    //Controle de deboucing
+
+bool ciclo_normal_inicado = false;      //Variáveis para sincronizar os sistema com base no ciclo dos leds RGB
 bool ciclo_noturno_iniciado = false;
 
 TaskHandle_t xHandleA; //Suspender e ativar a task
 
-
-
-uint sinal_atual=0;
+uint sinal_atual=0; //Variável para alternar as cores e sinalizações na matriz, no buzzer e no display
 
 void vSemaforoRGBTask(){
 
@@ -45,35 +52,35 @@ void vSemaforoRGBTask(){
         //vTaskSuspend(xHandleA);
         if(!modoNoturno){
             //Modo normal 
-            ciclo_normal_inicado = true;
-            ciclo_noturno_iniciado = false;
-            gpio_put(led_Green,1);
-            sinal_atual=1;
-            vTaskDelay(pdMS_TO_TICKS(15000));
-            gpio_put(led_Green,0);
-            vTaskDelay(pdMS_TO_TICKS(500));
-            gpio_put(led_Green,1);
-            gpio_put(led_Red,1);
-            sinal_atual=2;
-            vTaskDelay(pdMS_TO_TICKS(5000));
+            ciclo_normal_inicado = true;        //Muda o estado indicando que o ciclo normal foi iniciado
+            ciclo_noturno_iniciado = false;     //para sincronizar os sistema
+            gpio_put(led_Green,1);              //Liga o sinal Verde
+            sinal_atual=1;                      //Atualiza o estado do sistema
+            vTaskDelay(pdMS_TO_TICKS(15000));   //Tempo do sinal verde de 15s
+            gpio_put(led_Green,0);              //Desliga o sinal verde
+            vTaskDelay(pdMS_TO_TICKS(500));     //Pausa para mudar entre os sinais
+            gpio_put(led_Green,1);              
+            gpio_put(led_Red,1);                //Liga o sinal amarelo (verde e vermelho)
+            sinal_atual=2;                      
+            vTaskDelay(pdMS_TO_TICKS(5000));    //Tempo do sinal amarelo de 5s
             gpio_put(led_Green,0);
             gpio_put(led_Red,0);
             vTaskDelay(pdMS_TO_TICKS(500));
-            gpio_put(led_Red,1);
+            gpio_put(led_Red,1);                //Liga o sinal vermelho
             sinal_atual = 3;
-            vTaskDelay(pdMS_TO_TICKS(30000));
-            gpio_put(led_Red,0);
-            vTaskDelay(pdMS_TO_TICKS(500));
+            vTaskDelay(pdMS_TO_TICKS(30000));   //Tempo do sinal Vermelho de 30s
+            gpio_put(led_Red,0);                
+            vTaskDelay(pdMS_TO_TICKS(500));     
         }else{
-            ciclo_normal_inicado = false;
-            ciclo_noturno_iniciado = true;
+            ciclo_normal_inicado = false;       
+            ciclo_noturno_iniciado = true;      //Indica que o ciclo noturno iniciou para sincronização
             //Modo noturno
-            gpio_put(led_Green,1);
+            gpio_put(led_Green,1);              //Liga o sinal amarelo
             gpio_put(led_Red,1);
-            vTaskDelay(pdMS_TO_TICKS(3000));
+            vTaskDelay(pdMS_TO_TICKS(3000));    //Fica ligado por 3s
             gpio_put(led_Green,0);
             gpio_put(led_Red,0);
-            vTaskDelay(pdMS_TO_TICKS(3000));
+            vTaskDelay(pdMS_TO_TICKS(3000));    //Fica desligado por 3s
 
         };
 
@@ -81,8 +88,7 @@ void vSemaforoRGBTask(){
 
 };
 
-//Buzzer
-#define Buzzer 21
+#define Buzzer 21       //Pino do Buzzer
 void vBuzzerTask(){
 
     uint slice;
@@ -95,26 +101,26 @@ void vBuzzerTask(){
 
     while (true)
     {
-        if(modoNoturno && ciclo_noturno_iniciado){
-            pwm_set_gpio_level(Buzzer, 32768);
-            vTaskDelay(pdMS_TO_TICKS(700));
-            pwm_set_gpio_level(Buzzer, 0);
-            vTaskDelay(pdMS_TO_TICKS(2000));
-        }else if (ciclo_normal_inicado){
+        if(modoNoturno && ciclo_noturno_iniciado){      //Verifica se o modo noturno iniciou e se o ciclo dos LEDS também
+            pwm_set_gpio_level(Buzzer, 32768);          //para sincronização
+            vTaskDelay(pdMS_TO_TICKS(700));             //bit lento de 0,7s
+            pwm_set_gpio_level(Buzzer, 0);              
+            vTaskDelay(pdMS_TO_TICKS(2000));            //pausa de 2s
+        }else if (ciclo_normal_inicado){                //verifica para sincronização
             if(sinal_atual==1){
-                pwm_set_gpio_level(Buzzer, 32768);
-                vTaskDelay(pdMS_TO_TICKS(1000));
+                pwm_set_gpio_level(Buzzer, 32768);      //Como é o led verde que está ligado no momento
+                vTaskDelay(pdMS_TO_TICKS(1000));        // 1 bip longe de 1s
                 pwm_set_gpio_level(Buzzer, 0);
                 vTaskDelay(pdMS_TO_TICKS(14500));
             }else if(sinal_atual==2){
-                pwm_set_gpio_level(Buzzer, 32768);
-                vTaskDelay(pdMS_TO_TICKS(275));
+                pwm_set_gpio_level(Buzzer, 32768);      //Como é o led amarelo que está ligado no momento
+                vTaskDelay(pdMS_TO_TICKS(275));         //bip curto e rápido intermitente
                 pwm_set_gpio_level(Buzzer, 0);
                 vTaskDelay(pdMS_TO_TICKS(275));
             }else if(sinal_atual==3){
-                pwm_set_gpio_level(Buzzer, 32768);
-                vTaskDelay(pdMS_TO_TICKS(500));
-                pwm_set_gpio_level(Buzzer, 0);
+                pwm_set_gpio_level(Buzzer, 32768);      //Como é o led vermelho que está ligado no momento
+                vTaskDelay(pdMS_TO_TICKS(500));         //bip de 0,2s desligado e 1,5s ligado
+                pwm_set_gpio_level(Buzzer, 0);          
                 vTaskDelay(pdMS_TO_TICKS(1500));
             };
         }else{
@@ -141,31 +147,28 @@ void vDisplay3Task()
     ssd1306_fill(&ssd, false);
     ssd1306_send_data(&ssd);
 
-    char str_y[5]; // Buffer para armazenar a string
-    int contador = 0;
     bool cor = true;
     while (true) //Modificar todo o design
     {
-        sprintf(str_y, "%d", contador); // Converte em string
-        contador++;                     // Incrementa o contador
+        
         ssd1306_fill(&ssd, !cor);                          // Limpa o display
-        ssd1306_draw_string(&ssd,"SEMAFORO",34,3);
+        ssd1306_draw_string(&ssd,"SEMAFORO",34,3);          //Mensagem sobre o modelo do semaforo
         ssd1306_draw_string(&ssd,"PARA",47,12);
         ssd1306_draw_string(&ssd,"PEDESTRES",32,21);
         
-        if(modoNoturno && ciclo_noturno_iniciado){ //Sempre termina o ciclo e muda de modo?
-            ssd1306_draw_string(&ssd,"CUIDADO!",55,41); //Tentar fazer o cuidado passando pela tela
+        if(modoNoturno && ciclo_noturno_iniciado){          //Em modo noturno, a mensagem é "CUIDADO!"
+            ssd1306_draw_string(&ssd,"CUIDADO!",55,41);     //e imagem de um bonequinho parado
             ssd1306_draw_pessoa_parada(&ssd,20,31);
-        }else if (ciclo_normal_inicado){
-            if(sinal_atual==1){
+        }else if (ciclo_normal_inicado){                    //No modo normal, a mensagem alterna de acoro com o sinal
+            if(sinal_atual==1){                             //e a imagem também
                 ssd1306_draw_string(&ssd,"SIGA!",55,41);
-                ssd1306_draw_pessoa_andando(&ssd,20,31);
+                ssd1306_draw_pessoa_andando(&ssd,20,31);    //sinal verde, bonequinho dando um passo
             }else if(sinal_atual==2){
-                ssd1306_draw_string(&ssd,"ATENCAO!",42,41);
-                //ssd1306_draw_pessoa_parada(&ssd,20,31);
+                ssd1306_draw_string(&ssd,"ATENCAO!",55,41); 
+                ssd1306_draw_pessoa_parada(&ssd,20,31);     //sinal amarelo, bonequinho parado
             }else{
                 ssd1306_draw_string(&ssd,"PARE!",55,41);
-                ssd1306_draw_pessoa_parada(&ssd,20,31);
+                ssd1306_draw_pessoa_parada(&ssd,20,31);     //sinal vermelho, bonequinho parado
             };
         };
 
@@ -188,8 +191,7 @@ void interrupcaoBotao(uint gpio, uint32_t events)
         if(gpio==6){
             reset_usb_boot(0, 0);
         }else{
-            taskYieldRequired = xTaskResumeFromISR(xHandleA);
-            //Notificar task ?COMO FAZ ISSO
+            taskYieldRequired = xTaskResumeFromISR(xHandleA);  //Reativa a task do botão
         };
     };  
 };
@@ -202,18 +204,16 @@ void vBotaoATask(){
     gpio_pull_up(BotaoA);
     gpio_set_irq_enabled_with_callback(BotaoA, GPIO_IRQ_EDGE_FALL, true, &interrupcaoBotao);
 
-    vTaskSuspend(NULL);
-    //ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+    vTaskSuspend(NULL);         //Suspende a task
     while(true){
-        printf("modo noturno: %d",modoNoturno);
-        modoNoturno=!modoNoturno;
-        //vTaskDelay(pdMS_TO_TICKS(200));
-        vTaskSuspend(xHandleA); //Suspender nates do scheduler
+        printf("Modo noturno: %d\n",modoNoturno); 
+        modoNoturno=!modoNoturno;                   //Alterna o modo
+        vTaskSuspend(xHandleA);                     //Suspende a task novamente
     };
 };
 
-PIO pio = pio0; // ou pio1, conforme o uso
-uint sm = 0;    // ou outro valor, conforme sua configuração
+PIO pio = pio0; 
+uint sm = 0;    
 uint sinal_amarelo=0;
 
 void vMatrizLedsTask(){
@@ -228,16 +228,16 @@ void vMatrizLedsTask(){
     uint sinal_vermelho=0;
     COR_RGB apagado = {0.0,0.0,0.0};
 
-                              
+    //Vetor de cores para o semaforo: APAGADO - VERDE - AMARELO - VERMELHO
     COR_RGB cores_semaforo[4] = {{0.0,0.0,0.0},{0.0,0.5,0.0},{0.5,0.5,0.0},{0.5,0.0,0.0}};
 
     while(true){
-       if(modoNoturno && ciclo_noturno_iniciado){
-            sinal_verde=0;
+       if(modoNoturno && ciclo_noturno_iniciado){       
+            sinal_verde=0;                              //Define as valores certos para o modo noturno
             sinal_vermelho=0;
-            sinal_amarelo=abs(sinal_amarelo-2);
+            sinal_amarelo=abs(sinal_amarelo-2);         //Permite piscar o led amarelo no modo noturno
         }else if (ciclo_normal_inicado){
-            switch (sinal_atual){
+            switch (sinal_atual){                       //Modifica as variáveis de acordo com o sinal_atual
             case 1:
                 sinal_verde=1;
                 sinal_amarelo=0;
@@ -261,11 +261,15 @@ void vMatrizLedsTask(){
             sinal_amarelo=0;
             sinal_vermelho=0;
         };
+
+        //Matriz com o padrão a ser exibido é atualizada com os valores definidos acima
         Matriz_leds semaforo = {{apagado,apagado,apagado,apagado,apagado},
                             {apagado,apagado, cores_semaforo[sinal_verde],apagado,apagado},
                             {apagado,apagado, cores_semaforo[sinal_amarelo],apagado,apagado},
                             {apagado,apagado, cores_semaforo[sinal_vermelho],apagado,apagado},
                             {apagado,apagado,apagado,apagado,apagado}};
+        
+        //Verifica o modo para exibir a matriz com o intervalo certo
         if(modoNoturno && ciclo_noturno_iniciado){
             acender_leds(semaforo); 
             sleep_ms(3000);
@@ -288,7 +292,7 @@ int main()
     gpio_set_irq_enabled_with_callback(BotaoB, GPIO_IRQ_EDGE_FALL, true, &interrupcaoBotao);
     // Fim do trecho para modo BOOTSEL com botão B
 
-
+    //Task criadas - Todas com a mesma prioridade, pois a sincronização é feita com variáveis globais
     xTaskCreate(vSemaforoRGBTask, "Task RGB", configMINIMAL_STACK_SIZE, 
         NULL, tskIDLE_PRIORITY, NULL);
     xTaskCreate(vBotaoATask, "Task Botao", configMINIMAL_STACK_SIZE, 
