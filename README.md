@@ -14,7 +14,7 @@ __Os Componentes necessários para a execução da atividade são:__
 4) Display SSD1306 conectado via I2C (GPIO 14 e GPIO15);
 5) Buzzer conectado à GPIO 21;
 
-__Uma breve explicação do desenvolvimento e resultados obtidos podem ser vistos no vídeo endereçado no seguine link: [Semaforo Multitarefa]().__
+__Uma breve explicação do desenvolvimento e resultados obtidos podem ser vistos no vídeo endereçado no seguine link: [Semaforo Multitarefa](https://youtu.be/HFOplKElyt8).__
 
 ## Funcionalidades 
 
