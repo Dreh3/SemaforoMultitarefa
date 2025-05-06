@@ -33,6 +33,7 @@ O Display tem a função de simular um semaforo para pedestres. Quando os leds e
   <img src="![Semaforo2](https://github.com/user-attachments/assets/6c903628-816e-49ab-9235-8dc6716d1483)" width="300"/>
 </div>
 <br>
+
 ### 4. Sinalização sonora para alertar pessoas com deficiências visuais
 No Sinal Verde um bip longo de 1s é emitido, depois bips curtos constantes indicam a transição para o Sinal Amarelo. E, por último, um bip de 0,5s com intervalo de 1,5s indica o sinal Vermelho. 
 ### 5. Dois modos de sinalização com mudança a partir de uma Task
