@@ -161,14 +161,14 @@ void vDisplay3Task()
             ssd1306_draw_pessoa_parada(&ssd,20,31);
         }else if (ciclo_normal_inicado){                    //No modo normal, a mensagem alterna de acoro com o sinal
             if(sinal_atual==1){                             //e a imagem também
-                ssd1306_draw_string(&ssd,"SIGA!",55,41);
-                ssd1306_draw_pessoa_andando(&ssd,20,31);    //sinal verde, bonequinho dando um passo
+                ssd1306_draw_string(&ssd,"PARE!",55,41);
+                ssd1306_draw_pessoa_parada(&ssd,20,31);    //sinal verde, bonequinho parado
             }else if(sinal_atual==2){
                 ssd1306_draw_string(&ssd,"ATENCAO!",55,41); 
                 ssd1306_draw_pessoa_parada(&ssd,20,31);     //sinal amarelo, bonequinho parado
             }else{
-                ssd1306_draw_string(&ssd,"PARE!",55,41);
-                ssd1306_draw_pessoa_parada(&ssd,20,31);     //sinal vermelho, bonequinho parado
+                ssd1306_draw_string(&ssd,"SIGA!",55,41);
+                ssd1306_draw_pessoa_andando(&ssd,20,31);     //sinal vermelho, bonequinho andando
             };
         };
 
